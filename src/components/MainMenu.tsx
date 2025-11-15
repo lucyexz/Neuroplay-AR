@@ -8,7 +8,7 @@ export function MainMenu() {
   const [currentActivity, setCurrentActivity] = useState<Activity>('menu');
 
   if (currentActivity === 'backpack') {
-    return <ARView />;
+    return <ARView onBack={() => setCurrentActivity('menu')} />;
   }
 
   if (currentActivity === 'toothbrushing') {

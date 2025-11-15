@@ -4,13 +4,24 @@ import { ARScene3D } from './ARScene3D';
 import { CameraARScene } from './CameraARScene';
 import { MarkerARScene } from './MarkerARScene';
 
-export function ARView() {
+interface ARViewProps {
+  onBack: () => void;
+}
+
+export function ARView({ onBack }: ARViewProps) {
   const [mode, setMode] = useState<'menu' | 'webxr' | 'camera' | 'marker' | '3d'>('menu');
 
   if (mode === 'menu') {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-gradient-to-br from-blue-50 to-yellow-50">
         <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
+          <button
+            onClick={onBack}
+            className="absolute top-6 left-6 bg-white px-4 py-2 rounded-full shadow-lg hover:bg-gray-50 active:scale-95 transition-all"
+          >
+            <span className="text-2xl">←</span>
+          </button>
+
           <div className="text-center max-w-md space-y-6">
             <h1 className="text-4xl font-bold text-blue-600 mb-4">
               Mochila Interativa
