@@ -36,8 +36,13 @@ export function CameraARScene({ onBack }: CameraARSceneProps) {
   const [resetTrigger, setResetTrigger] = useState(0);
   const [gyroRotation, setGyroRotation] = useState({ alpha: 0, beta: 0, gamma: 0 });
   const streamRef = useRef<MediaStream | null>(null);
+  const [isSafari, setIsSafari] = useState(false);
 
   useEffect(() => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isSafariBrowser = /safari/.test(userAgent) && !/chrome|crios|fxios/.test(userAgent);
+    setIsSafari(isSafariBrowser);
+
     const handleOrientation = (event: DeviceOrientationEvent) => {
       setGyroRotation({
         alpha: event.alpha || 0,
@@ -71,26 +76,84 @@ export function CameraARScene({ onBack }: CameraARSceneProps) {
     setCameraError(null);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        audio: false,
-      });
+      let stream: MediaStream;
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+          audio: false,
+        });
+      } catch (err) {
+        console.warn('Tentando com constraints simplificadas...', err);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment',
+          },
+          audio: false,
+        });
+      }
 
       streamRef.current = stream;
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+
+        await new Promise<void>((resolve, reject) => {
+          if (!videoRef.current) {
+            reject(new Error('Video element not found'));
+            return;
+          }
+
+          const video = videoRef.current;
+
+          const handleLoadedMetadata = () => {
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            resolve();
+          };
+
+          const handleError = (e: Event) => {
+            video.removeEventListener('error', handleError);
+            reject(new Error('Video load error'));
+          };
+
+          video.addEventListener('loadedmetadata', handleLoadedMetadata);
+          video.addEventListener('error', handleError);
+
+          if (video.readyState >= 1) {
+            resolve();
+          }
+        });
+
+        try {
+          await videoRef.current.play();
+        } catch (playError) {
+          console.warn('Erro ao iniciar reprodução:', playError);
+        }
       }
 
       setHasCamera(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao acessar câmera:', error);
-      setCameraError('Não foi possível acessar a câmera. Verifique as permissões.');
+
+      let errorMessage = 'Não foi possível acessar a câmera.';
+
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        errorMessage = 'Permissão da câmera negada. Por favor, permita o acesso à câmera nas configurações.';
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        errorMessage = 'Nenhuma câmera encontrada no dispositivo.';
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        errorMessage = 'A câmera está sendo usada por outro aplicativo.';
+      } else if (error.name === 'OverconstrainedError') {
+        errorMessage = 'Câmera traseira não disponível. Tente outro dispositivo.';
+      } else if (error.name === 'SecurityError') {
+        errorMessage = 'Acesso à câmera bloqueado. Verifique se está usando HTTPS.';
+      }
+
+      setCameraError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -179,6 +242,8 @@ export function CameraARScene({ onBack }: CameraARSceneProps) {
         playsInline
         autoPlay
         muted
+        webkit-playsinline="true"
+        x-webkit-airplay="allow"
       />
 
       <div className="absolute inset-0">

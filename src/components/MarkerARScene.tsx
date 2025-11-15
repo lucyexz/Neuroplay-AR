@@ -37,31 +37,93 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
   const [markerDetected, setMarkerDetected] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [videoReady, setVideoReady] = useState(false);
 
   useEffect(() => {
     const startCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-          audio: false,
-        });
+        let stream: MediaStream;
+
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+            audio: false,
+          });
+        } catch (err) {
+          console.warn('Tentando com constraints simplificadas...', err);
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: 'environment',
+            },
+            audio: false,
+          });
+        }
 
         streamRef.current = stream;
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          await videoRef.current.play();
+
+          await new Promise<void>((resolve, reject) => {
+            if (!videoRef.current) {
+              reject(new Error('Video element not found'));
+              return;
+            }
+
+            const video = videoRef.current;
+
+            const handleLoadedMetadata = () => {
+              video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+              setVideoReady(true);
+              resolve();
+            };
+
+            const handleError = (e: Event) => {
+              video.removeEventListener('error', handleError);
+              reject(new Error('Video load error'));
+            };
+
+            video.addEventListener('loadedmetadata', handleLoadedMetadata);
+            video.addEventListener('error', handleError);
+
+            if (video.readyState >= 1) {
+              setVideoReady(true);
+              resolve();
+            }
+          });
+
+          try {
+            await videoRef.current.play();
+          } catch (playError) {
+            console.warn('Erro ao iniciar reprodução:', playError);
+          }
+
           setHasCamera(true);
         }
 
         setIsLoading(false);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Erro ao acessar câmera:', err);
-        setError('Não foi possível acessar a câmera. Verifique as permissões.');
+
+        let errorMessage = 'Não foi possível acessar a câmera.';
+
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          errorMessage = 'Permissão da câmera negada. Por favor, permita o acesso à câmera nas configurações.';
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          errorMessage = 'Nenhuma câmera encontrada no dispositivo.';
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          errorMessage = 'A câmera está sendo usada por outro aplicativo.';
+        } else if (err.name === 'OverconstrainedError') {
+          errorMessage = 'Câmera traseira não disponível. Tente outro dispositivo.';
+        } else if (err.name === 'SecurityError') {
+          errorMessage = 'Acesso à câmera bloqueado. Verifique se está usando HTTPS.';
+        }
+
+        setError(errorMessage);
         setIsLoading(false);
       }
     };
@@ -79,7 +141,7 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
   }, []);
 
   useEffect(() => {
-    if (!hasCamera) return;
+    if (!hasCamera || !videoReady) return;
 
     const detectMarker = () => {
       if (!videoRef.current || !canvasRef.current) return;
@@ -88,6 +150,8 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
+
+      if (video.videoWidth === 0 || video.videoHeight === 0) return;
 
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -126,7 +190,7 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
         clearInterval(detectionIntervalRef.current);
       }
     };
-  }, [hasCamera]);
+  }, [hasCamera, videoReady]);
 
   const handleItemCollected = (itemId: string) => {
     setItems((prevItems) => {
@@ -207,6 +271,8 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
         playsInline
         autoPlay
         muted
+        webkit-playsinline="true"
+        x-webkit-airplay="allow"
       />
 
       <canvas
