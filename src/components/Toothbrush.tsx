@@ -1,13 +1,15 @@
 import { useRef, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Mesh, Vector3, Raycaster, Vector2 } from 'three';
+import { useBrushingSound } from '../hooks/useBrushingSound';
 
 interface ToothbrushProps {
   position: [number, number, number];
   onPositionChange: (position: [number, number, number]) => void;
+  soundEnabled?: boolean;
 }
 
-export function Toothbrush({ position, onPositionChange }: ToothbrushProps) {
+export function Toothbrush({ position, onPositionChange, soundEnabled = true }: ToothbrushProps) {
   const meshRef = useRef<Mesh>(null);
   const groupRef = useRef<any>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -16,16 +18,22 @@ export function Toothbrush({ position, onPositionChange }: ToothbrushProps) {
   const raycaster = useRef(new Raycaster());
   const mouse = useRef(new Vector2());
   const lastSoundTime = useRef(0);
+  const { playBrushingSound, stopBrushingSound, playBubbleSound } = useBrushingSound({
+    enabled: soundEnabled,
+    volume: 0.25,
+  });
 
   useEffect(() => {
     const canvas = gl.domElement;
 
     const handlePointerDown = (event: PointerEvent | TouchEvent) => {
       setIsDragging(true);
+      playBrushingSound();
     };
 
     const handlePointerUp = () => {
       setIsDragging(false);
+      stopBrushingSound();
     };
 
     const handlePointerMove = (event: PointerEvent | TouchEvent) => {
@@ -48,13 +56,9 @@ export function Toothbrush({ position, onPositionChange }: ToothbrushProps) {
       targetPosition.current.z = Math.min(Math.max(newPosition.z, -2), 4);
 
       const now = Date.now();
-      if (now - lastSoundTime.current > 150) {
+      if (now - lastSoundTime.current > 300) {
         lastSoundTime.current = now;
-        if (typeof window !== 'undefined') {
-          const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZUQ4NVKno7bVhGgU7ltryxnMpBSh+zO/cjT0KF2G36+ihUREMTqfj8LdlHAY5k9n0y3orBSd7xu/dijwKFluz6+mjUxENUKjl7bNfGAU6mtvyxXQpBSaByO/ajD4KGGCz6OifUBEMTqnh7rVjGwU7nNv0yHYpBSh7xu/aizsKFl226eqkVBIMUarj7bVhGgU6nN30yHUpBSl8xe/ai0AKFluz6emiUxANU6vk8LRiGgY8nN30yHQqBSh8xO/di0EKGVy16OqjUhALT6rm7rZjGgU7n9z0x3MqBSh9xO/dikAKGF216+mjUhEKTavk8LRiGgU8nN30yXUrBSl8xO/bjEEKGl216+qjURALTqrm7rVhGgY7nN30yHUpBSl8xO/bjEEKGl216+qiUhAKTqvl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl226+qiURAKTqrk7rVhGgY8nN30yHYqBSl8xO/bjEEKGl226+qiURENUqvl7rVhGgY7nN30yHYrBSl8xO/bjEEKGl216+qjURALTqrk7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALTqrl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/b');
-          audio.volume = 0.15;
-          audio.play().catch(() => {});
-        }
+        playBubbleSound();
       }
     };
 

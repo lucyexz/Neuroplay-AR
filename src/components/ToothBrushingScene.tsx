@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import { Teeth } from './Teeth';
 import { Toothbrush } from './Toothbrush';
 import { BrushingCelebration } from './BrushingCelebration';
+import { useBrushingSound } from '../hooks/useBrushingSound';
 
 interface ToothBrushingSceneProps {
   onComplete: () => void;
@@ -14,7 +15,12 @@ export function ToothBrushingScene({ onComplete, resetTrigger }: ToothBrushingSc
   const [cleanedTeeth, setCleanedTeeth] = useState<Set<number>>(new Set());
   const [showCelebration, setShowCelebration] = useState(false);
   const [brushPosition, setBrushPosition] = useState<[number, number, number]>([0, 0, 2]);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const totalTeeth = 8;
+  const { playSparkleSound, playEncouragementSound, playCelebrationSound } = useBrushingSound({
+    enabled: soundEnabled,
+    volume: 0.3,
+  });
 
   const handleToothCleaned = (toothId: number) => {
     setCleanedTeeth((prev) => {
@@ -22,21 +28,17 @@ export function ToothBrushingScene({ onComplete, resetTrigger }: ToothBrushingSc
       if (!newSet.has(toothId)) {
         newSet.add(toothId);
 
-        if (typeof window !== 'undefined') {
-          const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZUQ4NVKno7bVhGgU7ltryxnMpBSh+zO/cjT0KF2G36+ihUREMTqfj8LdlHAY5k9n0y3orBSd7xu/dijwKFluz6+mjUxENUKjl7bNfGAU6mtvyxXQpBSaByO/ajD4KGGCz6OifUBEMTqnh7rVjGwU7nNv0yHYpBSh7xu/aizsKFl226eqkVBIMUarj7bVhGgU6nN30yHUpBSl8xe/ai0AKFluz6emiUxANU6vk8LRiGgY8nN30yHQqBSh8xO/di0EKGVy16OqjUhALT6rm7rZjGgU7n9z0x3MqBSh9xO/dikAKGF216+mjUhEKTavk8LRiGgU8nN30yXUrBSl8xO/bjEEKGl216+qjURALTqrm7rVhGgY7nN30yHUpBSl8xO/bjEEKGl216+qiUhAKTqvl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl226+qiURAKTqrk7rVhGgY8nN30yHYqBSl8xO/bjEEKGl226+qiURENUqvl7rVhGgY7nN30yHYrBSl8xO/bjEEKGl216+qjURALTqrk7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALTqrl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/b');
-          audio.volume = 0.3;
-          audio.play().catch(() => {});
+        playSparkleSound();
+
+        if (newSet.size % 2 === 0 && newSet.size < totalTeeth) {
+          playEncouragementSound();
         }
 
         if (newSet.size === totalTeeth) {
           setShowCelebration(true);
           onComplete();
           setTimeout(() => {
-            if (typeof window !== 'undefined') {
-              const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZUQ4NVKno7bVhGgU7ltryxnMpBSh+zO/cjT0KF2G36+ihUREMTqfj8LdlHAY5k9n0y3orBSd7xu/dijwKFluz6+mjUxENUKjl7bNfGAU6mtvyxXQpBSaByO/ajD4KGGCz6OifUBEMTqnh7rVjGwU7nNv0yHYpBSh7xu/aizsKFl226eqkVBIMUarj7bVhGgU6nN30yHUpBSl8xe/ai0AKFluz6emiUxANU6vk8LRiGgY8nN30yHQqBSh8xO/di0EKGVy16OqjUhALT6rm7rZjGgU7n9z0x3MqBSh9xO/dikAKGF216+mjUhEKTavk8LRiGgU8nN30yXUrBSl8xO/bjEEKGl216+qjURALTqrm7rVhGgY7nN30yHUpBSl8xO/bjEEKGl216+qiUhAKTqvl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl226+qiURAKTqrk7rVhGgY8nN30yHYqBSl8xO/bjEEKGl226+qiURENUqvl7rVhGgY7nN30yHYrBSl8xO/bjEEKGl216+qjURALTqrk7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALTqrl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/bjEEKGl216+qiUhALT6rl7rVhGgY7nN30yHYqBSl8xO/b');
-              audio.volume = 0.5;
-              audio.play().catch(() => {});
-            }
+            playCelebrationSound();
           }, 300);
         }
       }
@@ -89,6 +91,7 @@ export function ToothBrushingScene({ onComplete, resetTrigger }: ToothBrushingSc
           <Toothbrush
             position={brushPosition}
             onPositionChange={setBrushPosition}
+            soundEnabled={soundEnabled}
           />
 
           {showCelebration && <BrushingCelebration />}
@@ -102,6 +105,22 @@ export function ToothBrushingScene({ onComplete, resetTrigger }: ToothBrushingSc
           </p>
         </div>
       </div>
+
+      <button
+        onClick={() => setSoundEnabled(!soundEnabled)}
+        className="absolute top-6 right-6 z-10 bg-white/95 backdrop-blur-sm p-3 rounded-full shadow-lg hover:bg-white active:scale-95 transition-all"
+        aria-label={soundEnabled ? 'Desligar som' : 'Ligar som'}
+      >
+        {soundEnabled ? (
+          <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          </svg>
+        ) : (
+          <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+          </svg>
+        )}
+      </button>
 
       {progressPercentage < 100 && (
         <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-10">
