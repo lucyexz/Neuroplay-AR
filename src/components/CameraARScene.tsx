@@ -37,6 +37,9 @@ export function CameraARScene({ onBack }: CameraARSceneProps) {
   const [gyroRotation, setGyroRotation] = useState({ alpha: 0, beta: 0, gamma: 0 });
   const streamRef = useRef<MediaStream | null>(null);
   const [isSafari, setIsSafari] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const playCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const userAgent = navigator.userAgent.toLowerCase();
@@ -67,6 +70,9 @@ export function CameraARScene({ onBack }: CameraARSceneProps) {
       window.removeEventListener('deviceorientation', handleOrientation);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (playCheckIntervalRef.current) {
+        clearInterval(playCheckIntervalRef.current);
       }
     };
   }, []);
@@ -109,29 +115,76 @@ export function CameraARScene({ onBack }: CameraARSceneProps) {
           }
 
           const video = videoRef.current;
+          let timeoutId: NodeJS.Timeout;
 
           const handleLoadedMetadata = () => {
             video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('loadeddata', handleLoadedData);
+            clearTimeout(timeoutId);
+            setVideoReady(true);
+            resolve();
+          };
+
+          const handleLoadedData = () => {
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('loadeddata', handleLoadedData);
+            clearTimeout(timeoutId);
+            setVideoReady(true);
             resolve();
           };
 
           const handleError = (e: Event) => {
             video.removeEventListener('error', handleError);
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('loadeddata', handleLoadedData);
+            clearTimeout(timeoutId);
             reject(new Error('Video load error'));
           };
 
+          timeoutId = setTimeout(() => {
+            video.removeEventListener('error', handleError);
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('loadeddata', handleLoadedData);
+            reject(new Error('Video initialization timeout'));
+          }, 10000);
+
           video.addEventListener('loadedmetadata', handleLoadedMetadata);
+          video.addEventListener('loadeddata', handleLoadedData);
           video.addEventListener('error', handleError);
 
-          if (video.readyState >= 1) {
+          if (video.readyState >= 2) {
+            clearTimeout(timeoutId);
+            setVideoReady(true);
             resolve();
           }
         });
 
         try {
           await videoRef.current.play();
+
+          await new Promise<void>((resolve) => {
+            const checkPlaying = () => {
+              if (videoRef.current &&
+                  !videoRef.current.paused &&
+                  videoRef.current.readyState >= 2 &&
+                  videoRef.current.videoWidth > 0 &&
+                  videoRef.current.videoHeight > 0) {
+                setVideoPlaying(true);
+                resolve();
+              } else {
+                requestAnimationFrame(checkPlaying);
+              }
+            };
+            checkPlaying();
+
+            setTimeout(() => {
+              setVideoPlaying(true);
+              resolve();
+            }, 1000);
+          });
         } catch (playError) {
           console.warn('Erro ao iniciar reprodução:', playError);
+          setVideoPlaying(true);
         }
       }
 
@@ -239,18 +292,32 @@ export function CameraARScene({ onBack }: CameraARSceneProps) {
       <video
         ref={videoRef}
         className="absolute inset-0 w-full h-full object-cover"
+        style={{ zIndex: 0 }}
         playsInline
         autoPlay
         muted
-        webkit-playsinline="true"
-        x-webkit-airplay="allow"
       />
 
-      <div className="absolute inset-0">
-        <Canvas
-          gl={{ alpha: true, antialias: true }}
-          style={{ background: 'transparent' }}
-        >
+      {!videoPlaying && hasCamera && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black" style={{ zIndex: 5 }}>
+          <div className="text-center text-white space-y-4">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto"></div>
+            <p className="text-lg font-semibold">Inicializando câmera...</p>
+          </div>
+        </div>
+      )}
+
+      {videoPlaying && (
+        <div className="absolute inset-0" style={{ zIndex: 1 }}>
+          <Canvas
+            gl={{
+              alpha: true,
+              antialias: true,
+              preserveDrawingBuffer: true,
+              powerPreference: isSafari ? 'default' : 'high-performance'
+            }}
+            style={{ background: 'transparent' }}
+          >
           <Suspense fallback={null}>
             <PerspectiveCamera
               makeDefault
@@ -285,8 +352,9 @@ export function CameraARScene({ onBack }: CameraARSceneProps) {
           </Suspense>
         </Canvas>
       </div>
+      )}
 
-      <div className="absolute top-6 left-6 z-10">
+      <div className="absolute top-6 left-6" style={{ zIndex: 10 }}>
         <button
           onClick={onBack}
           className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg hover:bg-white active:scale-95 transition-all"
@@ -295,7 +363,7 @@ export function CameraARScene({ onBack }: CameraARSceneProps) {
         </button>
       </div>
 
-      <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10">
+      <div className="absolute top-6 left-1/2 transform -translate-x-1/2" style={{ zIndex: 10 }}>
         <div className="bg-white/90 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg">
           <p className="text-lg font-semibold text-gray-800">
             Toque nos objetos para guardar
@@ -303,7 +371,7 @@ export function CameraARScene({ onBack }: CameraARSceneProps) {
         </div>
       </div>
 
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2" style={{ zIndex: 10 }}>
         <div className="bg-blue-500/90 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg">
           <p className="text-sm font-medium text-white">
             Mova o celular para explorar
@@ -312,7 +380,7 @@ export function CameraARScene({ onBack }: CameraARSceneProps) {
       </div>
 
       {completed && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-20 pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-none" style={{ zIndex: 20 }}>
           <div className="bg-white rounded-3xl p-8 shadow-2xl text-center max-w-sm pointer-events-auto">
             <h2 className="text-4xl font-bold text-green-600 mb-4">
               Parabéns!

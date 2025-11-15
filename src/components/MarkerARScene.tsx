@@ -38,8 +38,14 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
   const streamRef = useRef<MediaStream | null>(null);
   const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [videoReady, setVideoReady] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [isSafari, setIsSafari] = useState(false);
 
   useEffect(() => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isSafariBrowser = /safari/.test(userAgent) && !/chrome|crios|fxios/.test(userAgent);
+    setIsSafari(isSafariBrowser);
+
     const startCamera = async () => {
       try {
         let stream: MediaStream;
@@ -76,21 +82,45 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
 
             const video = videoRef.current;
 
+            let timeoutId: NodeJS.Timeout;
+
             const handleLoadedMetadata = () => {
               video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+              video.removeEventListener('loadeddata', handleLoadedData);
+              clearTimeout(timeoutId);
+              setVideoReady(true);
+              resolve();
+            };
+
+            const handleLoadedData = () => {
+              video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+              video.removeEventListener('loadeddata', handleLoadedData);
+              clearTimeout(timeoutId);
               setVideoReady(true);
               resolve();
             };
 
             const handleError = (e: Event) => {
               video.removeEventListener('error', handleError);
+              video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+              video.removeEventListener('loadeddata', handleLoadedData);
+              clearTimeout(timeoutId);
               reject(new Error('Video load error'));
             };
 
+            timeoutId = setTimeout(() => {
+              video.removeEventListener('error', handleError);
+              video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+              video.removeEventListener('loadeddata', handleLoadedData);
+              reject(new Error('Video initialization timeout'));
+            }, 10000);
+
             video.addEventListener('loadedmetadata', handleLoadedMetadata);
+            video.addEventListener('loadeddata', handleLoadedData);
             video.addEventListener('error', handleError);
 
-            if (video.readyState >= 1) {
+            if (video.readyState >= 2) {
+              clearTimeout(timeoutId);
               setVideoReady(true);
               resolve();
             }
@@ -98,8 +128,30 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
 
           try {
             await videoRef.current.play();
+
+            await new Promise<void>((resolve) => {
+              const checkPlaying = () => {
+                if (videoRef.current &&
+                    !videoRef.current.paused &&
+                    videoRef.current.readyState >= 2 &&
+                    videoRef.current.videoWidth > 0 &&
+                    videoRef.current.videoHeight > 0) {
+                  setVideoPlaying(true);
+                  resolve();
+                } else {
+                  requestAnimationFrame(checkPlaying);
+                }
+              };
+              checkPlaying();
+
+              setTimeout(() => {
+                setVideoPlaying(true);
+                resolve();
+              }, 1000);
+            });
           } catch (playError) {
             console.warn('Erro ao iniciar reprodução:', playError);
+            setVideoPlaying(true);
           }
 
           setHasCamera(true);
@@ -268,11 +320,10 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
       <video
         ref={videoRef}
         className="absolute inset-0 w-full h-full object-cover"
+        style={{ zIndex: 0 }}
         playsInline
         autoPlay
         muted
-        webkit-playsinline="true"
-        x-webkit-airplay="allow"
       />
 
       <canvas
@@ -280,10 +331,24 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
         className="hidden"
       />
 
-      <div className="absolute inset-0 pointer-events-none">
-        {hasCamera && (
+      {!videoPlaying && hasCamera && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black" style={{ zIndex: 5 }}>
+          <div className="text-center text-white space-y-4">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto"></div>
+            <p className="text-lg font-semibold">Inicializando câmera...</p>
+          </div>
+        </div>
+      )}
+
+      {videoPlaying && (
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
           <Canvas
-            gl={{ alpha: true, antialias: true }}
+            gl={{
+              alpha: true,
+              antialias: true,
+              preserveDrawingBuffer: true,
+              powerPreference: isSafari ? 'default' : 'high-performance'
+            }}
             style={{ background: 'transparent' }}
           >
             <Suspense fallback={null}>
@@ -309,10 +374,10 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
               )}
             </Suspense>
           </Canvas>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="absolute top-6 left-6 z-10">
+      <div className="absolute top-6 left-6" style={{ zIndex: 10 }}>
         <button
           onClick={onBack}
           className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg hover:bg-white active:scale-95 transition-all"
@@ -321,7 +386,7 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
         </button>
       </div>
 
-      <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10">
+      <div className="absolute top-6 left-1/2 transform -translate-x-1/2" style={{ zIndex: 10 }}>
         <div
           className={`backdrop-blur-sm px-6 py-3 rounded-full shadow-lg transition-all ${
             markerDetected
@@ -335,7 +400,7 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
         </div>
       </div>
 
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2" style={{ zIndex: 10 }}>
         <div className="bg-blue-500/90 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg">
           <p className="text-sm font-medium text-white">
             Itens coletados: {items.filter((i) => i.collected).length}/{items.length}
@@ -344,7 +409,7 @@ export function MarkerARScene({ onBack }: MarkerARSceneProps) {
       </div>
 
       {completed && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-20 pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-none" style={{ zIndex: 20 }}>
           <div className="bg-white rounded-3xl p-8 shadow-2xl text-center max-w-sm pointer-events-auto">
             <h2 className="text-4xl font-bold text-green-600 mb-4">Parabéns!</h2>
             <p className="text-xl text-gray-700 mb-6">
