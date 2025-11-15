@@ -15,6 +15,7 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
   const [detectedTarget, setDetectedTarget] = useState<string | null>(null);
   const mindARRef = useRef<any>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const isNavigatingRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -84,17 +85,25 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
         if (brightness > 50 && brightness < 200 && hasHighContrast) {
           const detectedShape = detectShape(imageData);
 
-          if (detectedShape && !detectedTarget) {
+          if (detectedShape && !isNavigatingRef.current) {
+            isNavigatingRef.current = true;
             setDetectedTarget(detectedShape);
+
+            if (animationFrameRef.current) {
+              cancelAnimationFrame(animationFrameRef.current);
+              animationFrameRef.current = null;
+            }
+
             setTimeout(() => {
               if (mounted) {
                 onDetect(detectedShape as 'bandaid' | 'school' | 'tooth');
               }
-            }, 500);
+            }, 1500);
+            return;
           }
         }
 
-        if (mounted && !detectedTarget) {
+        if (mounted && !isNavigatingRef.current) {
           animationFrameRef.current = requestAnimationFrame(detect);
         }
       };
@@ -165,9 +174,11 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
 
     return () => {
       mounted = false;
+      isNavigatingRef.current = false;
 
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
 
       if (videoRef.current && videoRef.current.srcObject) {
@@ -183,7 +194,7 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
         }
       }
     };
-  }, [onDetect, onError, detectedTarget]);
+  }, [onDetect, onError]);
 
   return (
     <div
@@ -230,7 +241,7 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
             animate={{ opacity: 1, y: 0 }}
             className="absolute inset-x-0 top-1/2 -translate-y-1/2 pointer-events-none"
           >
-            <div className="relative w-80 h-80 mx-auto">
+            <div className="relative w-64 h-64 sm:w-80 sm:h-80 mx-auto">
               <motion.div
                 className="absolute inset-0 border-4 border-purple-400 rounded-3xl"
                 animate={{
@@ -256,13 +267,13 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="absolute bottom-20 inset-x-0 text-center px-4"
+            className="absolute bottom-16 sm:bottom-20 inset-x-0 text-center px-4"
           >
-            <div className="bg-black/70 backdrop-blur-sm rounded-3xl p-6 max-w-md mx-auto">
-              <p className="text-white text-xl font-semibold mb-2">
+            <div className="bg-black/70 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 max-w-md mx-auto">
+              <p className="text-white text-lg sm:text-xl font-semibold mb-1 sm:mb-2">
                 Aponte para um card
               </p>
-              <p className="text-white/80 text-base">
+              <p className="text-white/80 text-sm sm:text-base">
                 Curativo • Material Escolar • Dente
               </p>
             </div>
@@ -277,7 +288,7 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
           >
             <div className="text-center">
               <motion.div
-                className="text-8xl mb-6"
+                className="text-6xl sm:text-8xl mb-4 sm:mb-6"
                 animate={{
                   scale: [1, 1.2, 1],
                   rotate: [0, 10, -10, 0],
@@ -291,10 +302,10 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
                 {detectedTarget === 'school' && '🎒'}
                 {detectedTarget === 'tooth' && '🦷'}
               </motion.div>
-              <h2 className="text-4xl font-bold text-white mb-4">
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mb-2 sm:mb-4">
                 Card detectado!
               </h2>
-              <p className="text-white/90 text-xl">
+              <p className="text-white/90 text-lg sm:text-xl">
                 Abrindo atividade...
               </p>
             </div>
