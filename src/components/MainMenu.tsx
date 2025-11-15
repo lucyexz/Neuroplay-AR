@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { ARView } from './ARView';
 import { ToothBrushingView } from './ToothBrushingView';
 import { VacinacaoAmigaView } from './VacinacaoAmiga/VacinacaoAmigaView';
+import { ARReaderView } from './ARReader/ARReaderView';
 
-type Activity = 'menu' | 'backpack' | 'toothbrushing' | 'vacinacao';
+type Activity = 'menu' | 'backpack' | 'toothbrushing' | 'vacinacao' | 'arreader';
 
 export function MainMenu() {
   const [currentActivity, setCurrentActivity] = useState<Activity>('menu');
@@ -20,6 +21,15 @@ export function MainMenu() {
     return <VacinacaoAmigaView onBack={() => setCurrentActivity('menu')} />;
   }
 
+  if (currentActivity === 'arreader') {
+    return (
+      <ARReaderView
+        onBack={() => setCurrentActivity('menu')}
+        onNavigate={(screen) => setCurrentActivity(screen)}
+      />
+    );
+  }
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-yellow-50">
       <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
@@ -31,7 +41,22 @@ export function MainMenu() {
             Escolha uma atividade para começar
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            <button
+              onClick={() => setCurrentActivity('arreader')}
+              className="group relative bg-gradient-to-br from-pink-500 to-purple-600 p-8 rounded-3xl shadow-xl hover:shadow-2xl active:scale-95 transition-all md:col-span-2"
+            >
+              <div className="text-7xl mb-4">📸</div>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                LER CARDS
+              </h2>
+              <p className="text-white/90 text-lg">
+                Aponte a câmera para um card e descubra uma atividade
+              </p>
+              <div className="absolute inset-0 rounded-3xl border-4 border-white opacity-0 group-hover:opacity-50 transition-opacity"></div>
+            </button>
+
+            <div className="md:col-span-2 h-1 bg-gradient-to-r from-transparent via-gray-300 to-transparent my-4"></div>
             <button
               onClick={() => setCurrentActivity('backpack')}
               className="group relative bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl active:scale-95 transition-all"
@@ -74,6 +99,10 @@ export function MainMenu() {
               <div className="absolute inset-0 rounded-3xl border-4 border-purple-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </button>
           </div>
+
+          <p className="text-base text-gray-600 mt-4">
+            💡 Use <strong>LER CARDS</strong> para acessar as atividades de forma mágica!
+          </p>
 
           <div className="mt-12 text-center">
             <p className="text-sm text-gray-500">
