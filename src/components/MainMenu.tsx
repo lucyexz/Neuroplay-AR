@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { ARView } from './ARView';
 import { ToothBrushingView } from './ToothBrushingView';
+import { VacinacaoAmigaView } from './VacinacaoAmiga/VacinacaoAmigaView';
 
-type Activity = 'menu' | 'backpack' | 'toothbrushing';
+type Activity = 'menu' | 'backpack' | 'toothbrushing' | 'vacinacao';
 
 export function MainMenu() {
   const [currentActivity, setCurrentActivity] = useState<Activity>('menu');
@@ -13,6 +14,10 @@ export function MainMenu() {
 
   if (currentActivity === 'toothbrushing') {
     return <ToothBrushingView onBack={() => setCurrentActivity('menu')} />;
+  }
+
+  if (currentActivity === 'vacinacao') {
+    return <VacinacaoAmigaView onBack={() => setCurrentActivity('menu')} />;
   }
 
   return (
@@ -53,6 +58,20 @@ export function MainMenu() {
                 Aprenda a escovar os dentes de forma divertida
               </p>
               <div className="absolute inset-0 rounded-3xl border-4 border-green-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            </button>
+
+            <button
+              onClick={() => setCurrentActivity('vacinacao')}
+              className="group relative bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl active:scale-95 transition-all"
+            >
+              <div className="text-7xl mb-4">💉</div>
+              <h2 className="text-2xl font-bold text-purple-600 mb-2">
+                Vacinação Amiga
+              </h2>
+              <p className="text-gray-600 text-lg">
+                Prepare-se para a vacina de forma calma e segura
+              </p>
+              <div className="absolute inset-0 rounded-3xl border-4 border-purple-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </button>
           </div>
 
