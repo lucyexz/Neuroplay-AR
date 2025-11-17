@@ -1,67 +1,74 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
+import { Mesh } from 'three';
+import { useGameStore } from '../../store/gameStore';
 
-interface TrafficLightProps {
-  position: [number, number, number];
-  isGreen: boolean;
-}
+export function TrafficLight() {
+  const redLightRef = useRef<Mesh>(null);
+  const greenLightRef = useRef<Mesh>(null);
+  const trafficLight = useGameStore((state) => state.trafficLight);
+  const setTrafficLight = useGameStore((state) => state.setTrafficLight);
 
-export function TrafficLight({ position, isGreen }: TrafficLightProps) {
-  const lightRef = useRef<THREE.Mesh>(null);
-  const [glowIntensity, setGlowIntensity] = useState(1);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTrafficLight(trafficLight === 'red' ? 'green' : 'red');
+
+      if (trafficLight === 'red') {
+        const audio = new Audio();
+        audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZUQ4EYrXn66lYFQhJouL0vXAiBziM0/HPeCsGI3fI8N2RQAoVXbTq66lTFApGn+DywmwhBjCG0PPUgjQGHm++7+OYUg4FYrXn66lYFQhJoeLzw';
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [trafficLight, setTrafficLight]);
 
   useFrame((state) => {
     const time = state.clock.getElapsedTime();
-    setGlowIntensity(0.8 + Math.sin(time * 2) * 0.2);
+    if (redLightRef.current && trafficLight === 'red') {
+      redLightRef.current.material.emissiveIntensity = 0.8 + Math.sin(time * 3) * 0.2;
+    }
+    if (greenLightRef.current && trafficLight === 'green') {
+      greenLightRef.current.material.emissiveIntensity = 0.8 + Math.sin(time * 3) * 0.2;
+    }
   });
 
   return (
-    <group position={position}>
-      <mesh position={[0, 1.5, 0]}>
-        <boxGeometry args={[0.3, 2, 0.2]} />
-        <meshStandardMaterial color="#2c3e50" />
+    <group position={[4, 2, -3]}>
+      <mesh position={[0, -1, 0]} castShadow>
+        <cylinderGeometry args={[0.1, 0.1, 2, 16]} />
+        <meshStandardMaterial color="#2a2a2a" />
       </mesh>
 
-      <mesh position={[0, 0, 0]}>
-        <cylinderGeometry args={[0.1, 0.1, 1.5, 8]} />
-        <meshStandardMaterial color="#34495e" />
+      <mesh position={[0, 0, 0]} castShadow>
+        <boxGeometry args={[0.5, 1.2, 0.3]} />
+        <meshStandardMaterial color="#1a1a1a" />
       </mesh>
 
-      <mesh ref={lightRef} position={[0, 2.2, 0.11]}>
-        <circleGeometry args={[0.25, 32]} />
+      <mesh ref={redLightRef} position={[0, 0.35, 0.16]}>
+        <circleGeometry args={[0.18, 32]} />
         <meshStandardMaterial
-          color={isGreen ? '#00ff00' : '#ff0000'}
-          emissive={isGreen ? '#00ff00' : '#ff0000'}
-          emissiveIntensity={glowIntensity}
+          color={trafficLight === 'red' ? '#ff0000' : '#440000'}
+          emissive={trafficLight === 'red' ? '#ff0000' : '#000000'}
+          emissiveIntensity={trafficLight === 'red' ? 1 : 0}
         />
       </mesh>
 
-      <mesh position={[0, 1.8, 0.11]}>
-        <circleGeometry args={[0.25, 32]} />
+      <mesh ref={greenLightRef} position={[0, -0.35, 0.16]}>
+        <circleGeometry args={[0.18, 32]} />
         <meshStandardMaterial
-          color={isGreen ? '#004400' : '#440000'}
-          emissive={isGreen ? '#004400' : '#440000'}
-          emissiveIntensity={0.2}
+          color={trafficLight === 'green' ? '#00ff00' : '#004400'}
+          emissive={trafficLight === 'green' ? '#00ff00' : '#000000'}
+          emissiveIntensity={trafficLight === 'green' ? 1 : 0}
         />
       </mesh>
 
-      {isGreen && (
-        <pointLight
-          position={[0, 2.2, 0.5]}
-          color="#00ff00"
-          intensity={glowIntensity * 2}
-          distance={5}
-        />
+      {trafficLight === 'red' && (
+        <pointLight position={[0, 0.35, 0.5]} color="#ff0000" intensity={2} distance={5} />
       )}
-
-      {!isGreen && (
-        <pointLight
-          position={[0, 2.2, 0.5]}
-          color="#ff0000"
-          intensity={glowIntensity * 2}
-          distance={5}
-        />
+      {trafficLight === 'green' && (
+        <pointLight position={[0, -0.35, 0.5]} color="#00ff00" intensity={2} distance={5} />
       )}
     </group>
   );

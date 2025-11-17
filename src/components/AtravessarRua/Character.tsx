@@ -1,97 +1,98 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
+import { Group } from 'three';
+import { useGameStore } from '../../store/gameStore';
 
-interface CharacterProps {
-  position: [number, number, number];
-  isWalking: boolean;
-}
+export function Character() {
+  const groupRef = useRef<Group>(null);
+  const characterPosition = useGameStore((state) => state.characterPosition);
+  const gamePhase = useGameStore((state) => state.gamePhase);
+  const setCharacterPosition = useGameStore((state) => state.setCharacterPosition);
+  const setGamePhase = useGameStore((state) => state.setGamePhase);
+  const setMessage = useGameStore((state) => state.setMessage);
+  const setStars = useGameStore((state) => state.setStars);
 
-export function Character({ position, isWalking }: CharacterProps) {
-  const groupRef = useRef<THREE.Group>(null);
-  const leftLegRef = useRef<THREE.Mesh>(null);
-  const rightLegRef = useRef<THREE.Mesh>(null);
-  const leftArmRef = useRef<THREE.Mesh>(null);
-  const rightArmRef = useRef<THREE.Mesh>(null);
+  useEffect(() => {
+    if (gamePhase === 'crossing') {
+      const interval = setInterval(() => {
+        setCharacterPosition(characterPosition + 0.05);
+
+        if (characterPosition >= 6) {
+          clearInterval(interval);
+          setGamePhase('success');
+          setMessage('🌟 Muito bem! Você atravessou com segurança!', true);
+          setStars(true);
+
+          const audio = new Audio();
+          audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZUQ4EYrXn66lYFQhJouL0vXAiBziM0/HPeCsGI3fI8N2RQAoVXbTq66lTFApGn+DywmwhBjCG0PPUgjQGHm++7+OYUg4FYrXn66lYFQhJoeLzw';
+          audio.volume = 0.4;
+          audio.play().catch(() => {});
+
+          setTimeout(() => {
+            setMessage('', false);
+            setStars(false);
+            setCharacterPosition(0);
+            setGamePhase('waiting');
+          }, 3000);
+        }
+      }, 50);
+
+      return () => clearInterval(interval);
+    }
+  }, [gamePhase, characterPosition, setCharacterPosition, setGamePhase, setMessage, setStars]);
 
   useFrame((state) => {
-    if (isWalking) {
+    if (groupRef.current && gamePhase === 'waiting') {
       const time = state.clock.getElapsedTime();
-      const walkCycle = Math.sin(time * 5);
-
-      if (leftLegRef.current) {
-        leftLegRef.current.rotation.x = walkCycle * 0.5;
-      }
-      if (rightLegRef.current) {
-        rightLegRef.current.rotation.x = -walkCycle * 0.5;
-      }
-      if (leftArmRef.current) {
-        leftArmRef.current.rotation.x = -walkCycle * 0.3;
-      }
-      if (rightArmRef.current) {
-        rightArmRef.current.rotation.x = walkCycle * 0.3;
-      }
-
-      if (groupRef.current) {
-        groupRef.current.position.y = position[1] + Math.abs(Math.sin(time * 5)) * 0.1;
-      }
-    } else {
-      if (leftLegRef.current) leftLegRef.current.rotation.x = 0;
-      if (rightLegRef.current) rightLegRef.current.rotation.x = 0;
-      if (leftArmRef.current) leftArmRef.current.rotation.x = 0;
-      if (rightArmRef.current) rightArmRef.current.rotation.x = 0;
-
-      if (groupRef.current) {
-        groupRef.current.position.y = position[1];
-      }
+      groupRef.current.position.y = Math.sin(time * 2) * 0.05;
     }
   });
 
   return (
-    <group ref={groupRef} position={position}>
-      <mesh position={[0, 0.8, 0]} castShadow>
-        <sphereGeometry args={[0.3, 32, 32]} />
-        <meshStandardMaterial color="#ffdbac" />
-      </mesh>
-
+    <group ref={groupRef} position={[characterPosition - 3, 0.5, 0]} rotation={[0, Math.PI / 2, 0]}>
       <mesh position={[0, 0.3, 0]} castShadow>
-        <cylinderGeometry args={[0.25, 0.25, 0.6, 16]} />
-        <meshStandardMaterial color="#3498db" />
+        <capsuleGeometry args={[0.2, 0.4, 16, 32]} />
+        <meshStandardMaterial color="#ffb6c1" />
       </mesh>
 
-      <mesh ref={leftLegRef} position={[-0.12, -0.15, 0]} castShadow>
-        <cylinderGeometry args={[0.08, 0.08, 0.5, 16]} />
-        <meshStandardMaterial color="#2c3e50" />
+      <mesh position={[0, 0.9, 0]} castShadow>
+        <sphereGeometry args={[0.25, 32, 32]} />
+        <meshStandardMaterial color="#ffd4a3" />
       </mesh>
 
-      <mesh ref={rightLegRef} position={[0.12, -0.15, 0]} castShadow>
-        <cylinderGeometry args={[0.08, 0.08, 0.5, 16]} />
-        <meshStandardMaterial color="#2c3e50" />
-      </mesh>
-
-      <mesh ref={leftArmRef} position={[-0.35, 0.4, 0]} rotation={[0, 0, 0.3]} castShadow>
-        <cylinderGeometry args={[0.06, 0.06, 0.4, 16]} />
-        <meshStandardMaterial color="#ffdbac" />
-      </mesh>
-
-      <mesh ref={rightArmRef} position={[0.35, 0.4, 0]} rotation={[0, 0, -0.3]} castShadow>
-        <cylinderGeometry args={[0.06, 0.06, 0.4, 16]} />
-        <meshStandardMaterial color="#ffdbac" />
-      </mesh>
-
-      <mesh position={[-0.1, 0.85, 0.2]}>
+      <mesh position={[0.15, 0.95, 0.12]}>
         <sphereGeometry args={[0.05, 16, 16]} />
-        <meshStandardMaterial color="#2c3e50" />
+        <meshStandardMaterial color="#2a2a2a" />
       </mesh>
 
-      <mesh position={[0.1, 0.85, 0.2]}>
+      <mesh position={[0.15, 0.95, -0.12]}>
         <sphereGeometry args={[0.05, 16, 16]} />
-        <meshStandardMaterial color="#2c3e50" />
+        <meshStandardMaterial color="#2a2a2a" />
       </mesh>
 
-      <mesh position={[0, 0.7, 0.25]} rotation={[0, 0, Math.PI]}>
-        <circleGeometry args={[0.08, 32]} />
-        <meshStandardMaterial color="#ff6b6b" />
+      <mesh position={[0.18, 0.82, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <torusGeometry args={[0.08, 0.02, 8, 16, Math.PI]} />
+        <meshStandardMaterial color="#2a2a2a" />
+      </mesh>
+
+      <mesh position={[0, 0.3, 0.25]} rotation={[0, 0, -0.3]} castShadow>
+        <capsuleGeometry args={[0.08, 0.3, 8, 16]} />
+        <meshStandardMaterial color="#ffb6c1" />
+      </mesh>
+
+      <mesh position={[0, 0.3, -0.25]} rotation={[0, 0, 0.3]} castShadow>
+        <capsuleGeometry args={[0.08, 0.3, 8, 16]} />
+        <meshStandardMaterial color="#ffb6c1" />
+      </mesh>
+
+      <mesh position={[0, -0.2, 0.1]} castShadow>
+        <capsuleGeometry args={[0.08, 0.3, 8, 16]} />
+        <meshStandardMaterial color="#4a90e2" />
+      </mesh>
+
+      <mesh position={[0, -0.2, -0.1]} castShadow>
+        <capsuleGeometry args={[0.08, 0.3, 8, 16]} />
+        <meshStandardMaterial color="#4a90e2" />
       </mesh>
     </group>
   );

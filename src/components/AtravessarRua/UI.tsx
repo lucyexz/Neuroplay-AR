@@ -1,4 +1,4 @@
-import { useGameStore } from '../store/gameStore';
+import { useGameStore } from '../../store/gameStore';
 import { Circle, Play, RotateCcw } from 'lucide-react';
 
 export function UI() {
