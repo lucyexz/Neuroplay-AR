@@ -3,8 +3,9 @@ import { ARView } from './ARView';
 import { ToothBrushingView } from './ToothBrushingView';
 import { VacinacaoAmigaView } from './VacinacaoAmiga/VacinacaoAmigaView';
 import { ARReaderView } from './ARReader/ARReaderView';
+import { AtravessarRuaView } from './AtravessarRua/AtravessarRuaView';
 
-type Activity = 'menu' | 'backpack' | 'toothbrushing' | 'vacinacao' | 'arreader';
+type Activity = 'menu' | 'backpack' | 'toothbrushing' | 'vacinacao' | 'arreader' | 'street';
 
 export function MainMenu() {
   const [currentActivity, setCurrentActivity] = useState<Activity>('menu');
@@ -28,6 +29,10 @@ export function MainMenu() {
         onNavigate={(screen) => setCurrentActivity(screen)}
       />
     );
+  }
+
+  if (currentActivity === 'street') {
+    return <AtravessarRuaView onBack={() => setCurrentActivity('menu')} />;
   }
 
   return (
@@ -97,6 +102,20 @@ export function MainMenu() {
                 Prepare-se para a vacina de forma calma e segura
               </p>
               <div className="absolute inset-0 rounded-3xl border-4 border-purple-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            </button>
+
+            <button
+              onClick={() => setCurrentActivity('street')}
+              className="group relative bg-white p-6 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl hover:shadow-2xl active:scale-95 transition-all"
+            >
+              <div className="text-5xl sm:text-7xl mb-3 sm:mb-4">🚦</div>
+              <h2 className="text-xl sm:text-2xl font-bold text-yellow-600 mb-2">
+                Atravessar a Rua
+              </h2>
+              <p className="text-gray-600 text-sm sm:text-lg">
+                Aprenda a atravessar a rua com segurança
+              </p>
+              <div className="absolute inset-0 rounded-3xl border-4 border-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </button>
           </div>
 

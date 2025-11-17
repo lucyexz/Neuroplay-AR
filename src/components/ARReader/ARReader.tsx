@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ARReaderProps {
-  onDetect: (target: 'bandaid' | 'school' | 'tooth') => void;
+  onDetect: (target: 'bandaid' | 'school' | 'tooth' | 'street') => void;
   onError?: (error: string) => void;
 }
 
@@ -19,7 +19,8 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
   const detectionCountRef = useRef<{ [key: string]: number }>({
     tooth: 0,
     school: 0,
-    bandaid: 0
+    bandaid: 0,
+    street: 0
   });
   const lastDetectionRef = useRef<string | null>(null);
 
@@ -99,7 +100,8 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
               detectionCountRef.current = {
                 tooth: 0,
                 school: 0,
-                bandaid: 0
+                bandaid: 0,
+                street: 0
               };
               detectionCountRef.current[detectedShape] = 1;
             }
@@ -115,7 +117,7 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
 
               setTimeout(() => {
                 if (mounted) {
-                  onDetect(detectedShape as 'bandaid' | 'school' | 'tooth');
+                  onDetect(detectedShape as 'bandaid' | 'school' | 'tooth' | 'street');
                 }
               }, 1500);
               return;
@@ -125,7 +127,8 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
             detectionCountRef.current = {
               tooth: 0,
               school: 0,
-              bandaid: 0
+              bandaid: 0,
+              street: 0
             };
           }
         }
@@ -171,6 +174,8 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
       let whitePixels = 0;
       let brightWhitePixels = 0;
       let pinkPixels = 0;
+      let greenPixels = 0;
+      let grayPixels = 0;
 
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
@@ -182,6 +187,8 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
         if (b > 180 && r < 180 && g < 180 && b > r + 30) bluePixels++;
         if (r > 200 && g > 200 && b > 200) whitePixels++;
         if (r > 230 && g > 230 && b > 230) brightWhitePixels++;
+        if (g > 150 && g > r + 30 && g > b + 20 && r < 180 && b < 180) greenPixels++;
+        if (r > 100 && r < 180 && g > 100 && g < 180 && b > 100 && b < 180 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30) grayPixels++;
       }
 
       const total = data.length / 4;
@@ -190,17 +197,20 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
       const blueRatio = bluePixels / total;
       const whiteRatio = whitePixels / total;
       const brightWhiteRatio = brightWhitePixels / total;
+      const greenRatio = greenPixels / total;
+      const grayRatio = grayPixels / total;
 
       const scores = {
         tooth: 0,
         school: 0,
-        bandaid: 0
+        bandaid: 0,
+        street: 0
       };
 
-      if (brightWhiteRatio > 0.35 && blueRatio < 0.1 && redRatio < 0.08) {
+      if (brightWhiteRatio > 0.35 && blueRatio < 0.1 && redRatio < 0.08 && greenRatio < 0.1) {
         scores.tooth += 3;
       }
-      if (whiteRatio > 0.5 && blueRatio < 0.08 && redRatio < 0.08) {
+      if (whiteRatio > 0.5 && blueRatio < 0.08 && redRatio < 0.08 && greenRatio < 0.1) {
         scores.tooth += 2;
       }
 
@@ -218,7 +228,17 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
         scores.bandaid += 2;
       }
 
-      const maxScore = Math.max(scores.tooth, scores.school, scores.bandaid);
+      if (greenRatio > 0.15 && grayRatio > 0.1) {
+        scores.street += 3;
+      }
+      if (greenRatio > 0.1 && grayRatio > 0.15) {
+        scores.street += 2;
+      }
+      if (grayRatio > 0.25 && whiteRatio > 0.1 && whiteRatio < 0.3) {
+        scores.street += 2;
+      }
+
+      const maxScore = Math.max(scores.tooth, scores.school, scores.bandaid, scores.street);
 
       if (maxScore < 2) {
         return null;
@@ -232,6 +252,9 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
       }
       if (scores.bandaid === maxScore && scores.bandaid >= 3) {
         return 'bandaid';
+      }
+      if (scores.street === maxScore && scores.street >= 3) {
+        return 'street';
       }
 
       return null;
@@ -368,6 +391,7 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
                 {detectedTarget === 'bandaid' && '💉'}
                 {detectedTarget === 'school' && '🎒'}
                 {detectedTarget === 'tooth' && '🦷'}
+                {detectedTarget === 'street' && '🚦'}
               </motion.div>
               <h2 className="text-2xl sm:text-4xl font-bold text-white mb-2 sm:mb-4">
                 Card detectado!

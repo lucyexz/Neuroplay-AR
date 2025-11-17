@@ -4,14 +4,14 @@ import { motion } from 'framer-motion';
 
 interface ARReaderViewProps {
   onBack: () => void;
-  onNavigate: (screen: 'vacinacao' | 'backpack' | 'toothbrushing') => void;
+  onNavigate: (screen: 'vacinacao' | 'backpack' | 'toothbrushing' | 'street') => void;
 }
 
 export function ARReaderView({ onBack, onNavigate }: ARReaderViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
 
-  const handleDetect = (target: 'bandaid' | 'school' | 'tooth') => {
+  const handleDetect = (target: 'bandaid' | 'school' | 'tooth' | 'street') => {
     switch (target) {
       case 'bandaid':
         onNavigate('vacinacao');
@@ -21,6 +21,9 @@ export function ARReaderView({ onBack, onNavigate }: ARReaderViewProps) {
         break;
       case 'tooth':
         onNavigate('toothbrushing');
+        break;
+      case 'street':
+        onNavigate('street');
         break;
     }
   };
@@ -107,6 +110,14 @@ export function ARReaderView({ onBack, onNavigate }: ARReaderViewProps) {
                 <div className="text-left">
                   <h3 className="font-bold text-green-800 text-xl">Dente</h3>
                   <p className="text-green-700">Escovação de Dentes</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 p-4 bg-yellow-100 rounded-2xl">
+                <div className="text-5xl">🚦</div>
+                <div className="text-left">
+                  <h3 className="font-bold text-yellow-800 text-xl">Rua/Semáforo</h3>
+                  <p className="text-yellow-700">Atravessar com Segurança</p>
                 </div>
               </div>
             </div>
