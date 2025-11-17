@@ -16,6 +16,12 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
   const mindARRef = useRef<any>(null);
   const animationFrameRef = useRef<number | null>(null);
   const isNavigatingRef = useRef(false);
+  const detectionCountRef = useRef<{ [key: string]: number }>({
+    tooth: 0,
+    school: 0,
+    bandaid: 0
+  });
+  const lastDetectionRef = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -85,21 +91,42 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
         if (brightness > 50 && brightness < 200 && hasHighContrast) {
           const detectedShape = detectShape(imageData);
 
-          if (detectedShape && !isNavigatingRef.current) {
-            isNavigatingRef.current = true;
-            setDetectedTarget(detectedShape);
-
-            if (animationFrameRef.current) {
-              cancelAnimationFrame(animationFrameRef.current);
-              animationFrameRef.current = null;
+          if (detectedShape) {
+            if (lastDetectionRef.current === detectedShape) {
+              detectionCountRef.current[detectedShape]++;
+            } else {
+              lastDetectionRef.current = detectedShape;
+              detectionCountRef.current = {
+                tooth: 0,
+                school: 0,
+                bandaid: 0
+              };
+              detectionCountRef.current[detectedShape] = 1;
             }
 
-            setTimeout(() => {
-              if (mounted) {
-                onDetect(detectedShape as 'bandaid' | 'school' | 'tooth');
+            if (detectionCountRef.current[detectedShape] >= 3 && !isNavigatingRef.current) {
+              isNavigatingRef.current = true;
+              setDetectedTarget(detectedShape);
+
+              if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+                animationFrameRef.current = null;
               }
-            }, 1500);
-            return;
+
+              setTimeout(() => {
+                if (mounted) {
+                  onDetect(detectedShape as 'bandaid' | 'school' | 'tooth');
+                }
+              }, 1500);
+              return;
+            }
+          } else {
+            lastDetectionRef.current = null;
+            detectionCountRef.current = {
+              tooth: 0,
+              school: 0,
+              bandaid: 0
+            };
           }
         }
 
@@ -142,6 +169,8 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
       let redPixels = 0;
       let bluePixels = 0;
       let whitePixels = 0;
+      let brightWhitePixels = 0;
+      let pinkPixels = 0;
 
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
@@ -149,22 +178,60 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
         const b = data[i + 2];
 
         if (r > 200 && g < 150 && b < 150) redPixels++;
-        if (b > 200 && r < 150 && g < 150) bluePixels++;
+        if (r > 180 && g > 100 && g < 180 && b > 100 && b < 180) pinkPixels++;
+        if (b > 180 && r < 180 && g < 180 && b > r + 30) bluePixels++;
         if (r > 200 && g > 200 && b > 200) whitePixels++;
+        if (r > 230 && g > 230 && b > 230) brightWhitePixels++;
       }
 
       const total = data.length / 4;
+      const redRatio = redPixels / total;
+      const pinkRatio = pinkPixels / total;
+      const blueRatio = bluePixels / total;
+      const whiteRatio = whitePixels / total;
+      const brightWhiteRatio = brightWhitePixels / total;
 
-      if (redPixels / total > 0.15 || whitePixels / total > 0.3) {
-        return 'bandaid';
+      const scores = {
+        tooth: 0,
+        school: 0,
+        bandaid: 0
+      };
+
+      if (brightWhiteRatio > 0.35 && blueRatio < 0.1 && redRatio < 0.08) {
+        scores.tooth += 3;
+      }
+      if (whiteRatio > 0.5 && blueRatio < 0.08 && redRatio < 0.08) {
+        scores.tooth += 2;
       }
 
-      if (bluePixels / total > 0.15) {
+      if (blueRatio > 0.12) {
+        scores.school += 3;
+      }
+      if (blueRatio > 0.08 && whiteRatio > 0.2 && whiteRatio < 0.45) {
+        scores.school += 2;
+      }
+
+      if (redRatio > 0.12 || pinkRatio > 0.15) {
+        scores.bandaid += 3;
+      }
+      if ((redRatio > 0.08 || pinkRatio > 0.1) && whiteRatio > 0.2 && whiteRatio < 0.4) {
+        scores.bandaid += 2;
+      }
+
+      const maxScore = Math.max(scores.tooth, scores.school, scores.bandaid);
+
+      if (maxScore < 2) {
+        return null;
+      }
+
+      if (scores.tooth === maxScore && scores.tooth >= 3) {
+        return 'tooth';
+      }
+      if (scores.school === maxScore && scores.school >= 3) {
         return 'school';
       }
-
-      if (whitePixels / total > 0.4) {
-        return 'tooth';
+      if (scores.bandaid === maxScore && scores.bandaid >= 3) {
+        return 'bandaid';
       }
 
       return null;
