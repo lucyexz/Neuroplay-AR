@@ -13,6 +13,9 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [cameraReady, setCameraReady] = useState(false);
   const [detectedTarget, setDetectedTarget] = useState<string | null>(null);
+  const [detectionProgress, setDetectionProgress] = useState(0);
+  const [currentColor, setCurrentColor] = useState<string>('purple');
+  const [helpMessage, setHelpMessage] = useState<string>('');
   const mindARRef = useRef<any>(null);
   const animationFrameRef = useRef<number | null>(null);
   const isNavigatingRef = useRef(false);
@@ -23,6 +26,7 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
     street: 0
   });
   const lastDetectionRef = useRef<string | null>(null);
+  const noDetectionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -93,6 +97,11 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
           const detectedShape = detectShape(imageData);
 
           if (detectedShape) {
+            if (noDetectionTimerRef.current) {
+              clearTimeout(noDetectionTimerRef.current);
+              noDetectionTimerRef.current = null;
+            }
+
             if (lastDetectionRef.current === detectedShape) {
               detectionCountRef.current[detectedShape]++;
             } else {
@@ -106,9 +115,38 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
               detectionCountRef.current[detectedShape] = 1;
             }
 
+            const progress = Math.min((detectionCountRef.current[detectedShape] / 3) * 100, 100);
+            if (mounted) {
+              setDetectionProgress(progress);
+
+              const colorMap: { [key: string]: string } = {
+                tooth: 'white',
+                school: 'blue',
+                bandaid: 'red',
+                street: 'green'
+              };
+              setCurrentColor(colorMap[detectedShape] || 'purple');
+
+              const nameMap: { [key: string]: string } = {
+                tooth: 'Dente',
+                school: 'Mochila',
+                bandaid: 'Curativo',
+                street: 'Semáforo'
+              };
+              setHelpMessage(`Detectando ${nameMap[detectedShape]}... ${Math.round(progress)}%`);
+
+              if (navigator.vibrate && detectionCountRef.current[detectedShape] === 1) {
+                navigator.vibrate(30);
+              }
+            }
+
             if (detectionCountRef.current[detectedShape] >= 3 && !isNavigatingRef.current) {
               isNavigatingRef.current = true;
               setDetectedTarget(detectedShape);
+
+              if (navigator.vibrate) {
+                navigator.vibrate([50, 100, 50]);
+              }
 
               if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
@@ -117,6 +155,9 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
 
               setTimeout(() => {
                 if (mounted) {
+                  if (navigator.vibrate) {
+                    navigator.vibrate(100);
+                  }
                   onDetect(detectedShape as 'bandaid' | 'school' | 'tooth' | 'street');
                 }
               }, 1500);
@@ -130,6 +171,38 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
               bandaid: 0,
               street: 0
             };
+            if (mounted) {
+              setDetectionProgress(0);
+              setCurrentColor('purple');
+              setHelpMessage('');
+            }
+
+            if (!noDetectionTimerRef.current) {
+              noDetectionTimerRef.current = setTimeout(() => {
+                if (mounted && !isNavigatingRef.current) {
+                  setHelpMessage('💡 Posicione o card dentro do quadrado');
+                }
+              }, 5000);
+            }
+          }
+        } else {
+          lastDetectionRef.current = null;
+          detectionCountRef.current = {
+            tooth: 0,
+            school: 0,
+            bandaid: 0,
+            street: 0
+          };
+          if (mounted) {
+            setDetectionProgress(0);
+            setCurrentColor('purple');
+            if (brightness <= 50) {
+              setHelpMessage('💡 Ambiente muito escuro! Procure mais luz');
+            } else if (brightness >= 200) {
+              setHelpMessage('💡 Muito claro! Reduza a iluminação');
+            } else if (!hasHighContrast) {
+              setHelpMessage('💡 Card não detectado. Verifique se está dentro do quadrado');
+            }
           }
         }
 
@@ -207,54 +280,64 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
         street: 0
       };
 
-      if (brightWhiteRatio > 0.35 && blueRatio < 0.1 && redRatio < 0.08 && greenRatio < 0.1) {
+      if (brightWhiteRatio > 0.4 && blueRatio < 0.08 && redRatio < 0.06 && greenRatio < 0.08) {
+        scores.tooth += 4;
+      }
+      if (whiteRatio > 0.55 && brightWhiteRatio > 0.3 && blueRatio < 0.1 && redRatio < 0.08) {
         scores.tooth += 3;
       }
-      if (whiteRatio > 0.5 && blueRatio < 0.08 && redRatio < 0.08 && greenRatio < 0.1) {
-        scores.tooth += 2;
-      }
 
-      if (blueRatio > 0.12) {
+      if (blueRatio > 0.15) {
+        scores.school += 4;
+      }
+      if (blueRatio > 0.1 && whiteRatio > 0.15 && whiteRatio < 0.5) {
         scores.school += 3;
       }
-      if (blueRatio > 0.08 && whiteRatio > 0.2 && whiteRatio < 0.45) {
+      if (blueRatio > 0.08 && (redRatio < 0.1 && greenRatio < 0.12)) {
         scores.school += 2;
       }
 
-      if (redRatio > 0.12 || pinkRatio > 0.15) {
+      if (redRatio > 0.15 || pinkRatio > 0.18) {
+        scores.bandaid += 4;
+      }
+      if ((redRatio > 0.1 || pinkRatio > 0.12) && whiteRatio > 0.15 && whiteRatio < 0.45) {
         scores.bandaid += 3;
       }
-      if ((redRatio > 0.08 || pinkRatio > 0.1) && whiteRatio > 0.2 && whiteRatio < 0.4) {
+      if ((redRatio > 0.08 || pinkRatio > 0.1) && blueRatio < 0.1) {
         scores.bandaid += 2;
       }
 
-      if (greenRatio > 0.15 && grayRatio > 0.1) {
+      if (greenRatio > 0.18 && grayRatio > 0.12) {
+        scores.street += 4;
+      }
+      if (greenRatio > 0.12 && grayRatio > 0.18) {
         scores.street += 3;
       }
-      if (greenRatio > 0.1 && grayRatio > 0.15) {
+      if (grayRatio > 0.28 && whiteRatio > 0.08 && whiteRatio < 0.35) {
         scores.street += 2;
       }
-      if (grayRatio > 0.25 && whiteRatio > 0.1 && whiteRatio < 0.3) {
+      if (greenRatio > 0.1 && grayRatio > 0.1 && (redRatio < 0.1 && blueRatio < 0.1)) {
         scores.street += 2;
       }
 
       const maxScore = Math.max(scores.tooth, scores.school, scores.bandaid, scores.street);
 
-      if (maxScore < 2) {
+      if (maxScore < 3) {
         return null;
       }
 
-      if (scores.tooth === maxScore && scores.tooth >= 3) {
-        return 'tooth';
-      }
-      if (scores.school === maxScore && scores.school >= 3) {
-        return 'school';
-      }
-      if (scores.bandaid === maxScore && scores.bandaid >= 3) {
-        return 'bandaid';
-      }
-      if (scores.street === maxScore && scores.street >= 3) {
-        return 'street';
+      const scoresArray = [
+        { name: 'tooth', score: scores.tooth },
+        { name: 'school', score: scores.school },
+        { name: 'bandaid', score: scores.bandaid },
+        { name: 'street', score: scores.street }
+      ].sort((a, b) => b.score - a.score);
+
+      const firstPlace = scoresArray[0];
+      const secondPlace = scoresArray[1];
+
+      if (firstPlace.score >= 4 && firstPlace.score > secondPlace.score + 1) {
+        return firstPlace.name;
       }
 
       return null;
@@ -265,6 +348,11 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
     return () => {
       mounted = false;
       isNavigatingRef.current = false;
+
+      if (noDetectionTimerRef.current) {
+        clearTimeout(noDetectionTimerRef.current);
+        noDetectionTimerRef.current = null;
+      }
 
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -333,7 +421,13 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
           >
             <div className="relative w-64 h-64 sm:w-80 sm:h-80 mx-auto">
               <motion.div
-                className="absolute inset-0 border-4 border-purple-400 rounded-3xl"
+                className={`absolute inset-0 border-4 rounded-3xl ${
+                  currentColor === 'blue' ? 'border-blue-400' :
+                  currentColor === 'red' ? 'border-red-400' :
+                  currentColor === 'white' ? 'border-gray-300' :
+                  currentColor === 'green' ? 'border-green-400' :
+                  'border-purple-400'
+                }`}
                 animate={{
                   scale: [1, 1.05, 1],
                   opacity: [0.5, 1, 0.5],
@@ -345,10 +439,58 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
                 }}
               />
 
-              <div className="absolute top-4 left-4 w-8 h-8 border-t-4 border-l-4 border-purple-400 rounded-tl-xl" />
-              <div className="absolute top-4 right-4 w-8 h-8 border-t-4 border-r-4 border-purple-400 rounded-tr-xl" />
-              <div className="absolute bottom-4 left-4 w-8 h-8 border-b-4 border-l-4 border-purple-400 rounded-bl-xl" />
-              <div className="absolute bottom-4 right-4 w-8 h-8 border-b-4 border-r-4 border-purple-400 rounded-br-xl" />
+              <div className={`absolute top-4 left-4 w-8 h-8 border-t-4 border-l-4 rounded-tl-xl ${
+                currentColor === 'blue' ? 'border-blue-400' :
+                currentColor === 'red' ? 'border-red-400' :
+                currentColor === 'white' ? 'border-gray-300' :
+                currentColor === 'green' ? 'border-green-400' :
+                'border-purple-400'
+              }`} />
+              <div className={`absolute top-4 right-4 w-8 h-8 border-t-4 border-r-4 rounded-tr-xl ${
+                currentColor === 'blue' ? 'border-blue-400' :
+                currentColor === 'red' ? 'border-red-400' :
+                currentColor === 'white' ? 'border-gray-300' :
+                currentColor === 'green' ? 'border-green-400' :
+                'border-purple-400'
+              }`} />
+              <div className={`absolute bottom-4 left-4 w-8 h-8 border-b-4 border-l-4 rounded-bl-xl ${
+                currentColor === 'blue' ? 'border-blue-400' :
+                currentColor === 'red' ? 'border-red-400' :
+                currentColor === 'white' ? 'border-gray-300' :
+                currentColor === 'green' ? 'border-green-400' :
+                'border-purple-400'
+              }`} />
+              <div className={`absolute bottom-4 right-4 w-8 h-8 border-b-4 border-r-4 rounded-br-xl ${
+                currentColor === 'blue' ? 'border-blue-400' :
+                currentColor === 'red' ? 'border-red-400' :
+                currentColor === 'white' ? 'border-gray-300' :
+                currentColor === 'green' ? 'border-green-400' :
+                'border-purple-400'
+              }`} />
+
+              {detectionProgress > 0 && (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="absolute -bottom-16 left-0 right-0"
+                >
+                  <div className="bg-black/70 backdrop-blur-sm rounded-full p-2 mx-auto w-56">
+                    <div className="relative h-3 bg-gray-700 rounded-full overflow-hidden">
+                      <motion.div
+                        className={`absolute inset-y-0 left-0 rounded-full ${
+                          currentColor === 'blue' ? 'bg-blue-500' :
+                          currentColor === 'red' ? 'bg-red-500' :
+                          currentColor === 'white' ? 'bg-gray-100' :
+                          currentColor === 'green' ? 'bg-green-500' :
+                          'bg-purple-500'
+                        }`}
+                        style={{ width: `${detectionProgress}%` }}
+                        transition={{ duration: 0.2 }}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
             </div>
           </motion.div>
         )}
@@ -360,12 +502,20 @@ export function ARReader({ onDetect, onError }: ARReaderProps) {
             className="absolute bottom-16 sm:bottom-20 inset-x-0 text-center px-4"
           >
             <div className="bg-black/70 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 max-w-md mx-auto">
-              <p className="text-white text-lg sm:text-xl font-semibold mb-1 sm:mb-2">
-                Aponte para um card
-              </p>
-              <p className="text-white/80 text-sm sm:text-base">
-                Curativo • Material Escolar • Dente
-              </p>
+              {helpMessage ? (
+                <p className="text-white text-base sm:text-lg font-semibold">
+                  {helpMessage}
+                </p>
+              ) : (
+                <>
+                  <p className="text-white text-lg sm:text-xl font-semibold mb-1 sm:mb-2">
+                    Aponte para um card
+                  </p>
+                  <p className="text-white/80 text-sm sm:text-base">
+                    Curativo • Material Escolar • Dente • Semáforo
+                  </p>
+                </>
+              )}
             </div>
           </motion.div>
         )}
