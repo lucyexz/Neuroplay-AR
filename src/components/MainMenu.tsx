@@ -40,7 +40,7 @@ export function MainMenu() {
       <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-8 py-8">
         <div className="text-center max-w-2xl space-y-6 sm:space-y-8 w-full">
           <h1 className="text-3xl sm:text-5xl font-bold text-blue-600 mb-3 sm:mb-4">
-            Atividades Interativas
+            Neuroplay
           </h1>
           <p className="text-lg sm:text-xl text-gray-700 mb-8 sm:mb-12 px-4">
             Escolha uma atividade para começar

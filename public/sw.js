@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mochila-ar-v1';
+const CACHE_NAME = 'neuroplay-v1';
 const urlsToCache = [
   '/',
   '/index.html',

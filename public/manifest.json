@@ -1,7 +1,7 @@
 {
-  "name": "Mochila Interativa AR",
-  "short_name": "Mochila AR",
-  "description": "Aplicativo interativo 3D de mochila com realidade aumentada para crianças autistas",
+  "name": "Neuroplay",
+  "short_name": "Neuroplay",
+  "description": "Aplicativo interativo com realidade aumentada e jogos educativos para crianças",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#E3F2FD",

@@ -24,7 +24,7 @@ export function ARView({ onBack }: ARViewProps) {
 
           <div className="text-center max-w-md space-y-6">
             <h1 className="text-4xl font-bold text-blue-600 mb-4">
-              Mochila Interativa
+              Organize a Mochila
             </h1>
             <p className="text-lg text-gray-700 mb-8">
               Toque nos objetos para colocá-los na mochila
